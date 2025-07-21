@@ -15,6 +15,10 @@ import net.minecraft.world.ServerWorldAccess;
 import net.minecraft.util.Util;
 import net.minecraft.world.LocalDifficulty;
 import net.minecraft.world.World;
+import net.minecraft.registry.entry.RegistryEntry; // Added import for biome registry entry
+import net.minecraft.world.biome.Biome; // Added import for Biome class
+import net.minecraft.util.math.BlockPos; // Added import for BlockPos
+import net.minecraft.world.biome.BiomeKeys; // Ensure BiomeKeys is imported
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -104,7 +108,8 @@ public abstract class DolphinEntityMixin extends WaterCreatureEntity implements 
     }
 
     /**
-     * Overrides the initialize method to set a random variant when the entity spawns.
+     * Overrides the initialize method to set a random variant when the entity spawns,
+     * now based on the biome temperature.
      * This method is called after the entity's data tracker has been initialized,
      * so it's safe to use setVariant here.
      *
@@ -119,9 +124,47 @@ public abstract class DolphinEntityMixin extends WaterCreatureEntity implements 
                                  @Nullable EntityData entityData) {
         // Always call the super method first to ensure base initialization is complete.
         EntityData result = super.initialize(world, difficulty, spawnReason, entityData);
-        // Set a random variant for the newly spawned dolphin.
-        DolphinVariant variant = Util.getRandom(DolphinVariant.values(), this.random);
-        setVariant(variant);
+
+        // Get the biome at the entity's current position and its temperature
+        BlockPos pos = this.getBlockPos();
+        RegistryEntry<Biome> biomeEntry = world.getBiome(pos);
+
+        DolphinVariant chosenVariant;
+
+        // Determine variant based on specific biome keys
+        if (biomeEntry.matchesKey(BiomeKeys.FROZEN_OCEAN)) {
+            // Frozen Ocean: ORCA (5)
+            chosenVariant = DolphinVariant.ORCA;
+        } else if (biomeEntry.matchesKey(BiomeKeys.WARM_OCEAN)) {
+            // Warm Ocean: 1/50 chance for INDO, otherwise COLD
+            if (this.random.nextInt(50) == 0) { // 1 in 50 chance for Indo Dolphin
+                chosenVariant = DolphinVariant.INDO; // Assuming DolphinVariant.INDO exists
+            } else {
+                chosenVariant = DolphinVariant.BLUE; // The remaining variant for warm ocean
+            }
+        } else if (biomeEntry.matchesKey(BiomeKeys.COLD_OCEAN) ||
+                   biomeEntry.matchesKey(BiomeKeys.DEEP_COLD_OCEAN)) {
+            // Cold Ocean: COLD (1) or GRAY_GOLD (2)
+            DolphinVariant[] coldVariants = {DolphinVariant.COLD, DolphinVariant.GRAY_GOLD};
+            chosenVariant = Util.getRandom(coldVariants, this.random);
+        } else if (biomeEntry.matchesKey(BiomeKeys.OCEAN) ||
+                   biomeEntry.matchesKey(BiomeKeys.DEEP_OCEAN) ||
+                   biomeEntry.matchesKey(BiomeKeys.LUKEWARM_OCEAN) ||
+                   biomeEntry.matchesKey(BiomeKeys.DEEP_LUKEWARM_OCEAN)) {
+            // Normal/Lukewarm Ocean: GRAY (3), STRIPED (6), GRAY_STRIPED (8), BLUE (0), or DEFAULT (7)
+            DolphinVariant[] normalLukewarmVariants = {
+                DolphinVariant.GRAY,
+                DolphinVariant.STRIPED,
+                DolphinVariant.GRAY_STRIPED,
+                DolphinVariant.DEFAULT
+            };
+            chosenVariant = Util.getRandom(normalLukewarmVariants, this.random);
+        } else {
+            // Fallback for any other biome not explicitly listed (e.g., rivers, lakes, non-ocean biomes)
+            chosenVariant = DolphinVariant.DEFAULT;
+        }
+
+        setVariant(chosenVariant);
         return result;
     }
 }
