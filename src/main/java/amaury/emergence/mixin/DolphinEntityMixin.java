@@ -167,4 +167,20 @@ public abstract class DolphinEntityMixin extends WaterCreatureEntity implements 
         setVariant(chosenVariant);
         return result;
     }
+
+    
+    /**
+     * Overrides the getScaleFactor method to adjust the size of the dolphin based on its variant.
+     * The Orca variant will be 1.5 times larger than the default size.
+     *
+     * @return The scaling factor for the dolphin entity.
+     */
+    @Override
+    public float getScaleFactor() {
+        if (this.getVariant() == DolphinVariant.ORCA) {
+            return 1.5F; // 1.5 times the normal size
+        }
+        return super.getScaleFactor(); // For all other variants, use the vanilla scale factor
+    }
+
 }
